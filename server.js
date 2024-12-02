@@ -2,6 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const { Pool } = require('pg');
 const path = require('path');
+const session = require('express-session');
 
 const app = express();
 const pool = new Pool({
@@ -35,46 +36,51 @@ app.get('/login', (req, res) => {
 });
 
 // Halaman login
+// Route login yang rentan
 app.post('/login', async (req, res) => {
-    const { username, password } = req.body;
-  
-    try {
-      const result = await pool.query('SELECT * FROM users WHERE username = $1 AND password = $2', [username, password]);
-  
-      if (result.rows.length > 0) {
-        // Jika berhasil login, simpan userId di sesi
-        req.session.userId = result.rows[0].id;
-        res.redirect('/jadwal');  // Redirect ke halaman jadwal
-      } else {
-        res.send('Username atau password salah');
-      }
-    } catch (err) {
-      console.error(err);
-      res.status(500).send('Server Error');
+  const { username, password } = req.body;
+
+  try {
+    // Query rentan terhadap Blind SQL Injection (gunakan string concatenation)
+    const query = `SELECT * FROM users WHERE username = '${username}' AND password = '${password}'`;
+    
+    const result = await pool.query(query);
+
+    if (result.rows.length > 0) {
+      // Jika login berhasil, simpan userId di sesi
+      req.session.userId = result.rows[0].id;
+      res.redirect('/dashboard');  // Redirect ke halaman dashboard
+    } else {
+      res.send('Username atau password salah');
     }
-  });
-  
-
-// Halaman dashboard mahasiswa/dosen
-app.get('/dashboard', (req, res) => {
-  // Misalnya hanya user dengan role 'mahasiswa' atau 'dosen' yang bisa mengakses
-  res.render('dashboard');
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Server Error');
+  }
 });
-
+  
+// Halaman dashboard mahasiswa/dosen
+// Halaman Dashboard
+app.get('/dashboard', (req, res) => {
+    if (!req.session.userId) {
+      return res.redirect('/login');  // Jika belum login, redirect ke halaman login
+    }
+  
+    res.render('dashboard');  // Tampilkan dashboard setelah login
+  });
 // Halaman jadwal kuliah (mahasiswa)
-// Halaman Jadwal
 // Halaman Jadwal
 // Halaman Jadwal dengan query yang rentan (berbahaya!)
 app.get('/jadwal', async (req, res) => {
     if (!req.session.userId) {
-      return res.redirect('/login');
+      return res.redirect('/login');  // Jika belum login, redirect ke halaman login
     }
   
     try {
       // Ambil userId dari sesi
       const userId = req.session.userId;
       
-      // Query rentan terhadap Blind SQL Injection (Tidak aman!)
+      // Query rentan terhadap Blind SQL Injection (tidak aman!)
       const query = `SELECT * FROM jadwal WHERE user_id = ${userId}`;
       
       const result = await pool.query(query);
@@ -86,6 +92,7 @@ app.get('/jadwal', async (req, res) => {
       res.status(500).send('Server Error');
     }
   });
+  
   
 
 // Halaman berita

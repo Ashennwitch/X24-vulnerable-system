@@ -1,12 +1,14 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="id">
 <head>
-    <meta charset="UTF-8">
-    <title>Dashboard</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard</title>
 </head>
 <body>
-    <h1>Welcome, <%= user.nama %></h1>
-    <a href="/jadwal?user_id=<%= user.id %>">Lihat Jadwal Kuliah</a>
-    <a href="/berita">Lihat Berita Kampus</a>
+  <h1>Selamat Datang di Dashboard</h1>
+  <p>Anda berhasil login!</p>
+  
+  <a href="/jadwal">Lihat Jadwal Kuliah</a> <!-- Link ke halaman jadwal -->
 </body>
 </html>
