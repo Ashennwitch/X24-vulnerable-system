@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Berita Kampus</title>
+</head>
+<body>
+  <h1>Berita Kampus</h1>
+  <ul>
+    <% berita.forEach(berita => { %>
+      <li>
+        <h2><%= berita.judul %></h2>
+        <p><%= berita.isi %></p>
+        <p><em>Published on <%= berita.tanggal %></em></p>
+      </li>
+    <% }) %>
+  </ul>
+</body>
+</html>

@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Jadwal Kuliah</title>
+</head>
+<body>
+  <h1>Jadwal Kuliah Anda</h1>
+  <table border="1">
+    <thead>
+      <tr>
+        <th>Mata Kuliah</th>
+        <th>Hari</th>
+        <th>Waktu</th>
+        <th>Ruangan</th>
+      </tr>
+    </thead>
+    <tbody>
+      <% jadwal.forEach(jadwal => { %>
+        <tr>
+          <td><%= jadwal.mata_kuliah %></td>
+          <td><%= jadwal.hari %></td>
+          <td><%= jadwal.waktu %></td>
+          <td><%= jadwal.ruangan %></td>
+        </tr>
+      <% }) %>
+    </tbody>
+  </table>
+</body>
+</html>
