@@ -3,6 +3,8 @@ const express = require('express');
 const { Pool } = require('pg');
 const path = require('path');
 const session = require('express-session');
+const jwt = require('jsonwebtoken');
+const cookieParser = require('cookie-parser');
 
 const app = express();
 const pool = new Pool({
@@ -12,18 +14,18 @@ const pool = new Pool({
 
 // Middleware untuk sesi pengguna
 app.use(session({
-    secret: 'kampussecret',  // Ganti dengan secret yang lebih aman di produksi
-    resave: false,
-    saveUninitialized: true,
-    cookie: { secure: false }  // Pastikan diubah jika menggunakan HTTPS
-  }));
-  
-  app.use(express.urlencoded({ extended: true }));
-  app.use(express.json());
+  secret: 'kampussecret',  // Ganti dengan secret yang lebih aman di produksi
+  resave: false,
+  saveUninitialized: true,
+  cookie: { secure: false }  // Pastikan diubah jika menggunakan HTTPS
+}));
+
+app.use(express.urlencoded({ extended: true }));
+app.use(express.json());
+app.use(cookieParser());
 
 app.set('view engine', 'ejs');
 app.use(express.static(path.join(__dirname, 'public')));
-app.use(express.urlencoded({ extended: true }));
 
 // Halaman beranda
 app.get('/', (req, res) => {
@@ -32,68 +34,93 @@ app.get('/', (req, res) => {
 
 // Halaman login
 app.get('/login', (req, res) => {
-  res.render('login');
+  res.render('login', { error: null });
 });
 
-// Halaman login
-// Route login yang rentan
+// Rute login dengan celah Insecure JWT
 app.post('/login', async (req, res) => {
   const { username, password } = req.body;
 
   try {
-    // Query rentan terhadap Blind SQL Injection (gunakan string concatenation)
+    // Query rentan terhadap Blind SQL Injection
     const query = `SELECT * FROM users WHERE username = '${username}' AND password = '${password}'`;
-    
     const result = await pool.query(query);
 
     if (result.rows.length > 0) {
-      // Jika login berhasil, simpan userId di sesi
-      req.session.userId = result.rows[0].id;
-      res.redirect('/dashboard');  // Redirect ke halaman dashboard
+      const user = result.rows[0];
+      
+      // Menggunakan secret key lemah, hard-coded, dan memiliki masa expire yang cukup lama
+      const token = jwt.sign({ id: user.id }, 'weaksecret', { expiresIn: '1d' });
+
+      // Simpan token di cookie tanpa secure flag
+      res.cookie('token', token, { httpOnly: true, secure: false });
+      
+      res.redirect('/dashboard');
     } else {
-      res.send('Username atau password salah');
+      res.render('login', { error: 'Username atau password salah' });
     }
   } catch (err) {
     console.error(err);
     res.status(500).send('Server Error');
   }
 });
-  
-// Halaman dashboard mahasiswa/dosen
-// Halaman Dashboard
-app.get('/dashboard', (req, res) => {
-    if (!req.session.userId) {
-      return res.redirect('/login');  // Jika belum login, redirect ke halaman login
+
+// Middleware untuk autentikasi JWT (rentan)
+function authenticateJWT(req, res, next) {
+  const token = req.cookies.token;
+
+  if (!token) {
+    return res.redirect('/login');
+  }
+
+  // Mengabaikan verifikasi atau menggunakan secret key lemah
+  jwt.verify(token, 'weaksecret', (err, user) => {
+    if (err) {
+      return res.redirect('/login');
     }
-  
-    res.render('dashboard');  // Tampilkan dashboard setelah login
+    req.user = user;
+    next();
   });
-// Halaman jadwal kuliah (mahasiswa)
-// Halaman Jadwal
-// Halaman Jadwal dengan query yang rentan (berbahaya!)
-app.get('/jadwal', async (req, res) => {
-    if (!req.session.userId) {
-      return res.redirect('/login');  // Jika belum login, redirect ke halaman login
+}
+
+// Halaman dashboard dengan middleware autentikasi
+app.get('/dashboard', authenticateJWT, async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    // Query untuk mendapatkan nama pengguna berdasarkan ID
+    const query = `SELECT nama FROM users WHERE id = ${userId}`;
+    const result = await pool.query(query);
+
+    if (result.rows.length > 0) {
+      const nama = result.rows[0].nama;
+
+      // Kirim nama ke view dashboard
+      res.render('dashboard', { user: { nama } });
+    } else {
+      res.status(404).send('User tidak ditemukan');
     }
-  
-    try {
-      // Ambil userId dari sesi
-      const userId = req.session.userId;
-      
-      // Query rentan terhadap Blind SQL Injection (tidak aman!)
-      const query = `SELECT * FROM jadwal WHERE user_id = ${userId}`;
-      
-      const result = await pool.query(query);
-      
-      // Tampilkan halaman jadwal dengan data yang ditemukan
-      res.render('jadwal', { jadwal: result.rows });
-    } catch (err) {
-      console.error(err);
-      res.status(500).send('Server Error');
-    }
-  });
-  
-  
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Server Error');
+  }
+});
+
+
+// Halaman jadwal kuliah dengan query rentan Blind SQL Injection
+app.get('/jadwal', authenticateJWT, async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    const query = `SELECT * FROM jadwal WHERE user_id = ${userId}`;
+    const result = await pool.query(query);
+
+    res.render('jadwal', { jadwal: result.rows });
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Server Error');
+  }
+});
 
 // Halaman berita
 app.get('/berita', async (req, res) => {
