@@ -14,7 +14,7 @@ const pool = new Pool({
 
 // Middleware untuk sesi pengguna
 app.use(session({
-  secret: 'kampussecret',  // Ganti dengan secret yang lebih aman di produksi
+  secret: 'kampussecret',  // Ganti dengan secret yang lebih aman 
   resave: false,
   saveUninitialized: true,
   cookie: { secure: false }  // Pastikan diubah jika menggunakan HTTPS
@@ -50,11 +50,10 @@ app.post('/login', async (req, res) => {
       const user = result.rows[0];
       
       // Menggunakan secret key lemah, hard-coded, dan memiliki masa expire yang cukup lama
-      const token = jwt.sign({ id: user.id }, 'weaksecret', { expiresIn: '1d' });
+      const token = jwt.sign({ id: user.id, username: user.username }, 'weaksecret', { expiresIn: '1d' });
 
       // Simpan token di cookie tanpa secure flag
       res.cookie('token', token, { httpOnly: true, secure: false });
-      
       res.redirect('/dashboard');
     } else {
       res.render('login', { error: 'Username atau password salah' });
